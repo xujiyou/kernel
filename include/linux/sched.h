@@ -921,8 +921,8 @@ struct sched_class {
 #endif
 
 	void (*set_curr_task) (struct rq *rq);//当调度策略改变时，调用此函数
-	void (*task_tick) (struct rq *rq, struct task_struct *p, int queued);
-	void (*task_new) (struct rq *rq, struct task_struct *p);
+	void (*task_tick) (struct rq *rq, struct task_struct *p, int queued);//在每次激活周期性调度器时，由调度器执行此函数
+	void (*task_new) (struct rq *rq, struct task_struct *p);//用于新进程与调度器建立关联
 	void (*set_cpus_allowed)(struct task_struct *p,
 				 const cpumask_t *newmask);
 
@@ -957,20 +957,20 @@ struct load_weight {
  */
 //调度实体，用与包含一组进程，实现调度器实现组调度
 struct sched_entity {
-	struct load_weight	load;		/* for load-balancing */
-	struct rb_node		run_node;
+	struct load_weight	load;		/* for load-balancing *///权重，用于负载均衡
+	struct rb_node		run_node;//标准的树节点，使得实体可以在红黑树上排序
 	struct list_head	group_node;
-	unsigned int		on_rq;
+	unsigned int		on_rq;//进程注册到就绪队列时，on_rq为1，否则为0
 
-	u64			exec_start;
-	u64			sum_exec_runtime;
-	u64			vruntime;
-	u64			prev_sum_exec_runtime;
+	u64			exec_start;//记录开始时间，是执行update_curr时的时间，
+	u64			sum_exec_runtime;//记录程序运行时消耗的cpu时间，是当前时间减去exec_start的差值的累加，该数据不重置！
+	u64			vruntime;//进程执行期间虚拟时钟的流逝的时间
+	u64			prev_sum_exec_runtime;//在进程被撤销时，当前sum_exec_runtime的值保存到此成员中,在进程抢占时需要该数据
 
 	u64			last_wakeup;
 	u64			avg_overlap;
 
-#ifdef CONFIG_SCHEDSTATS
+#ifdef CONFIG_SCHEDSTATS//如果编译内核时启用了调度器统计
 	u64			wait_start;
 	u64			wait_max;
 	u64			wait_count;
@@ -1004,7 +1004,7 @@ struct sched_entity {
 	u64			nr_wakeups_idle;
 #endif
 
-#ifdef CONFIG_FAIR_GROUP_SCHED
+#ifdef CONFIG_FAIR_GROUP_SCHED//组调度
 	struct sched_entity	*parent;
 	/* rq on which this entity is (to be) queued: */
 	struct cfs_rq		*cfs_rq;
