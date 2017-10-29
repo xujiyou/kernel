@@ -70,28 +70,29 @@
  * SPARSEMEM_EXTREME with !SPARSEMEM_VMEMMAP).
  */
 enum pageflags {
-	PG_locked,		/* Page is locked. Don't touch. */
-	PG_error,
-	PG_referenced,
-	PG_uptodate,
-	PG_dirty,
-	PG_lru,
-	PG_active,
-	PG_slab,
+	PG_locked,//对页是否锁定		/* Page is locked. Don't touch. */
+	PG_error,//在该页的IO、操作期间发生错误
+	PG_referenced,//系统使用该页的活跃程度
+	PG_uptodate,//表示页的数据已经从块设备读取，期间没有出错
+	PG_dirty,//若与硬盘上的数据对别，页的内容已改变，则置位，证明该页是脏的，
+	PG_lru,//这个项有助于实现页面回收和页面切换，
+	PG_active,//同PG_referenced
+	PG_slab,//若是slab分配器的一部分，则置位
 	PG_owner_priv_1,	/* Owner use. If pagecache, fs may use*/
 	PG_arch_1,
 	PG_reserved,
-	PG_private,		/* If pagecache, has fs-private data */
-	PG_writeback,		/* Page is under writeback */
+	PG_private,//若page的private非空，则置位	/* If pagecache, has fs-private data */
+	PG_writeback,//若页处于向块设备回写的过程中，则置位		/* Page is under writeback */
 #ifdef CONFIG_PAGEFLAGS_EXTENDED
 	PG_head,		/* A head page */
 	PG_tail,		/* A tail page */
 #else
-	PG_compound,		/* A compound page */
+	PG_compound,//若此页属于一个组合页，则置位		/* A compound page */
 #endif
-	PG_swapcache,		/* Swap page: swp_entry_t in private */
+	PG_swapcache,//若页处于交换缓存，则置位		/* Swap page: swp_entry_t in private */
 	PG_mappedtodisk,	/* Has blocks allocated on-disk */
-	PG_reclaim,		/* To be reclaimed asap */
+	PG_reclaim,//在准备回收此页时设置此标志通知该页		/* To be reclaimed asap */
+	//若页空闲且位于伙伴系统的列表中，则PG_buddy置位，伙伴系统是页分配机制的核心
 	PG_buddy,		/* Page is free, on buddy lists */
 #ifdef CONFIG_IA64_UNCACHED_ALLOCATOR
 	PG_uncached,		/* Page has been mapped as uncached */

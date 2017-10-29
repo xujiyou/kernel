@@ -146,7 +146,7 @@ static unsigned long __meminitdata dma_reserve;
   #endif
 
   static struct node_active_region __meminitdata early_node_map[MAX_ACTIVE_REGIONS];
-  static int __meminitdata nr_nodemap_entries;
+  static int __meminitdata nr_nodemap_entries;//当前注册的内存区数目
   static unsigned long __meminitdata arch_zone_lowest_possible_pfn[MAX_NR_ZONES];
   static unsigned long __meminitdata arch_zone_highest_possible_pfn[MAX_NR_ZONES];
 #ifdef CONFIG_MEMORY_HOTPLUG_RESERVE
@@ -661,6 +661,7 @@ static struct page *__rmqueue_smallest(struct zone *zone, unsigned int order,
  * This array describes the order lists are fallen back to when
  * the free lists for the desirable migrate type are depleted
  */
+//该数组描述了指定迁移类型的空闲列表耗尽时，其他空闲列表在备用列表的次序
 static int fallbacks[MIGRATE_TYPES][MIGRATE_TYPES-1] = {
 	[MIGRATE_UNMOVABLE]   = { MIGRATE_RECLAIMABLE, MIGRATE_MOVABLE,   MIGRATE_RESERVE },
 	[MIGRATE_RECLAIMABLE] = { MIGRATE_UNMOVABLE,   MIGRATE_MOVABLE,   MIGRATE_RESERVE },
@@ -2215,7 +2216,7 @@ static void build_zonelists(pg_data_t *pgdat)
 	struct zonelist *zonelist;
 	int order = current_zonelist_order;
 
-	/* initialize zonelists */
+	/* initialize zonelists:初始化层次结构列表 */
 	for (i = 0; i < MAX_ZONELISTS; i++) {
 		zonelist = pgdat->node_zonelists + i;
 		zonelist->_zonerefs[0].zone = NULL;
@@ -2337,16 +2338,16 @@ static int __build_all_zonelists(void *dummy)
 {
 	int nid;
 
-	for_each_online_node(nid) {
-		pg_data_t *pgdat = NODE_DATA(nid);
+	for_each_online_node(nid) {//遍历各个NUMA节点
+		pg_data_t *pgdat = NODE_DATA(nid);//pgdat指向内存节点的实例，其中包含了内存节点配置所有的现存信息，
 
-		build_zonelists(pgdat);
+		build_zonelists(pgdat);//为每个内存节点建立生成内存域的结构，新建的数据结构放在pgdat中
 		build_zonelist_cache(pgdat);
 	}
 	return 0;
 }
 
-void build_all_zonelists(void)
+void build_all_zonelists(void)//建立管理节点和内存域所需的数据结构
 {
 	set_zonelist_order();
 
@@ -2590,7 +2591,7 @@ static int zone_batchsize(struct zone *zone)
 	 * OK, so we don't know how big the cache is.  So guess.
 	 */
 	batch = zone->present_pages / 1024;
-	if (batch * PAGE_SIZE > 512 * 1024)
+	if (batch * PAGE_SIZE > 512 * 1024)//内存域数量超过512MB时，批量大小不增长
 		batch = (512 * 1024) / PAGE_SIZE;
 	batch /= 4;		/* We effectively *= 4 below */
 	if (batch < 1)
@@ -2803,12 +2804,13 @@ int zone_wait_table_init(struct zone *zone, unsigned long zone_size_pages)
 	return 0;
 }
 
+//初始化冷热缓存
 static __meminit void zone_pcp_init(struct zone *zone)
 {
 	int cpu;
 	unsigned long batch = zone_batchsize(zone);
 
-	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+	for (cpu = 0; cpu < NR_CPUS; cpu++) {//遍历CPU
 #ifdef CONFIG_NUMA
 		/* Early boot. Slab allocator not functional yet */
 		zone_pcp(zone, cpu) = &boot_pageset[cpu];
@@ -3498,6 +3500,7 @@ static inline void setup_nr_node_ids(void)
  * the memory is not freed by the bootmem allocator. If possible
  * the range being registered will be merged with existing ranges.
  */
+//注册活动内存区
 void __init add_active_range(unsigned int nid, unsigned long start_pfn,
 						unsigned long end_pfn)
 {
@@ -3968,7 +3971,7 @@ void __init set_dma_reserve(unsigned long new_dma_reserve)
 
 #ifndef CONFIG_NEED_MULTIPLE_NODES
 static bootmem_data_t contig_bootmem_data;
-struct pglist_data contig_page_data = { .bdata = &contig_bootmem_data };
+struct pglist_data contig_page_data = { .bdata = &contig_bootmem_data };//内存节点实例，管理所有的系统内存
 
 EXPORT_SYMBOL(contig_page_data);
 #endif
@@ -4089,20 +4092,20 @@ static void setup_per_zone_lowmem_reserve(void)
  * Ensures that the pages_{min,low,high} values for each zone are set correctly
  * with respect to min_free_kbytes.
  */
-void setup_per_zone_pages_min(void)
+void setup_per_zone_pages_min(void)//计算内存域水印值
 {
 	unsigned long pages_min = min_free_kbytes >> (PAGE_SHIFT - 10);
 	unsigned long lowmem_pages = 0;
 	struct zone *zone;
 	unsigned long flags;
 
-	/* Calculate total number of !ZONE_HIGHMEM pages */
+	/* Calculate total number of !ZONE_HIGHMEM pages:计算出非高端内存域的页面总数 */
 	for_each_zone(zone) {
 		if (!is_highmem(zone))
 			lowmem_pages += zone->present_pages;
 	}
 
-	for_each_zone(zone) {
+	for_each_zone(zone) {//内核迭代所有内存域
 		u64 tmp;
 
 		spin_lock_irqsave(&zone->lru_lock, flags);
@@ -4121,7 +4124,7 @@ void setup_per_zone_pages_min(void)
 			int min_pages;
 
 			min_pages = zone->present_pages / 1024;
-			if (min_pages < SWAP_CLUSTER_MAX)
+			if (min_pages < SWAP_CLUSTER_MAX)//SWAP_CLUSTER_MAX是高端内存域的下界
 				min_pages = SWAP_CLUSTER_MAX;
 			if (min_pages > 128)
 				min_pages = 128;

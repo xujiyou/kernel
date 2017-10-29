@@ -40,6 +40,7 @@
 
 /* These are for everybody (although not all archs will actually
    discard it in modules) */
+//__section代表将数据储存在内核镜像的哪一部分,__cold说明函数不常用，对于初始化函数这是对的
 #define __init		__section(.init.text) __cold
 #define __initdata	__section(.init.data)
 #define __initconst	__section(.init.rodata)

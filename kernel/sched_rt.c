@@ -355,6 +355,7 @@ static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
  * Update the current task's runtime statistics. Skip current tasks that
  * are not in our scheduling class.
  */
+//更新当前进程花费的CPU时间，这里是实际时间，没有虚拟时间
 static void update_curr_rt(struct rq *rq)
 {
 	struct task_struct *curr = rq->curr;
@@ -371,7 +372,7 @@ static void update_curr_rt(struct rq *rq)
 
 	schedstat_set(curr->se.exec_max, max(curr->se.exec_max, delta_exec));
 
-	curr->se.sum_exec_runtime += delta_exec;
+	curr->se.sum_exec_runtime += delta_exec;//累加花费的时间
 	curr->se.exec_start = rq->clock;
 	cpuacct_charge(curr, delta_exec);
 
@@ -628,16 +629,16 @@ static struct sched_rt_entity *pick_next_rt_entity(struct rq *rq,
 	struct list_head *queue;
 	int idx;
 
-	idx = sched_find_first_bit(array->bitmap);
+	idx = sched_find_first_bit(array->bitmap);//内核的标准函数，可以知道第一个置位的比特
 	BUG_ON(idx >= MAX_RT_PRIO);
 
-	queue = array->queue + idx;
+	queue = array->queue + idx;//找到优先级最高链表的位置
 	next = list_entry(queue->next, struct sched_rt_entity, run_list);
 
 	return next;
 }
 
-static struct task_struct *pick_next_task_rt(struct rq *rq)
+static struct task_struct *pick_next_task_rt(struct rq *rq)//挑出下一个将要运行的进程
 {
 	struct sched_rt_entity *rt_se;
 	struct task_struct *p;
@@ -652,7 +653,7 @@ static struct task_struct *pick_next_task_rt(struct rq *rq)
 		return NULL;
 
 	do {
-		rt_se = pick_next_rt_entity(rq, rt_rq);
+		rt_se = pick_next_rt_entity(rq, rt_rq);//挑出下一个实体
 		BUG_ON(!rt_se);
 		rt_rq = group_rt_rq(rt_se);
 	} while (rt_rq);
@@ -1282,7 +1283,7 @@ static void watchdog(struct rq *rq, struct task_struct *p)
 			p->it_sched_expires = p->se.sum_exec_runtime;
 	}
 }
-
+//由周期性调度器周期调用
 static void task_tick_rt(struct rq *rq, struct task_struct *p, int queued)
 {
 	update_curr_rt(rq);
@@ -1291,23 +1292,23 @@ static void task_tick_rt(struct rq *rq, struct task_struct *p, int queued)
 
 	/*
 	 * RR tasks need a special form of timeslice management.
-	 * FIFO tasks have no timeslices.
+	 * FIFO tasks have no timeslices:先入先出进程没有时间片.
 	 */
 	if (p->policy != SCHED_RR)
 		return;
 
-	if (--p->rt.time_slice)
+	if (--p->rt.time_slice)//时间片没用完，减一后退出
 		return;
 
-	p->rt.time_slice = DEF_TIMESLICE;
+	p->rt.time_slice = DEF_TIMESLICE;//时间片已用完，赋予默认的时间片
 
 	/*
 	 * Requeue to the end of queue if we are not the only element
 	 * on the queue:
 	 */
-	if (p->rt.run_list.prev != p->rt.run_list.next) {
+	if (p->rt.run_list.prev != p->rt.run_list.next) {//若该进程不是链表唯一的进程，则将他排队到队尾
 		requeue_task_rt(rq, p);
-		set_tsk_need_resched(p);
+		set_tsk_need_resched(p);//将进程设置TIF_NEED_RESCHED，照常请求重调度
 	}
 }
 
@@ -1318,7 +1319,7 @@ static void set_curr_task_rt(struct rq *rq)
 	p->se.exec_start = rq->clock;
 }
 
-static const struct sched_class rt_sched_class = {
+static const struct sched_class rt_sched_class = {//实时调度类
 	.next			= &fair_sched_class,
 	.enqueue_task		= enqueue_task_rt,
 	.dequeue_task		= dequeue_task_rt,

@@ -29,6 +29,7 @@ extern void paging_init(void);
 /*
  * PGDIR_SHIFT determines what a top-level page table entry can map
  */
+//PGDIR_SHIFT代表
 #define PGDIR_SHIFT	39
 #define PTRS_PER_PGD	512
 

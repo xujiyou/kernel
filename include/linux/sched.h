@@ -907,6 +907,7 @@ struct sched_class {
 	void (*put_prev_task) (struct rq *rq, struct task_struct *p);//在切换进程时运行
 
 #ifdef CONFIG_SMP
+	//负责CPU的负载均衡,load_balance负责转移多个，move_one_task负责转移一个
 	unsigned long (*load_balance) (struct rq *this_rq, int this_cpu,
 			struct rq *busiest, unsigned long max_load_move,
 			struct sched_domain *sd, enum cpu_idle_type idle,
@@ -956,8 +957,9 @@ struct load_weight {
  *     6 se->load.weight
  */
 //调度实体，用与包含一组进程，实现调度器实现组调度
+//每个进程都可以是一个调度实体，但是一个调度实体可以包含多个进程
 struct sched_entity {
-	struct load_weight	load;		/* for load-balancing *///权重，用于负载均衡
+	struct load_weight	load;		/* for load-balancing *///权重，用于负载均衡,和优先级一起量化了进程的重要性
 	struct rb_node		run_node;//标准的树节点，使得实体可以在红黑树上排序
 	struct list_head	group_node;
 	unsigned int		on_rq;//进程注册到就绪队列时，on_rq为1，否则为0
@@ -1077,7 +1079,7 @@ struct task_struct {
 						//SCHED_BATCH用于非交互，cpu使用密集型的批处理进程，他决不会抢占其他进程。
 						//SCHED_IDLE重要性也较低，因为其（相对权重）总是较小的
 						//SCHED_RR和SCHED_FIFO用于软实时进程，SCHED_RR用一种循环的方式，这两种由实时调度器处理
-	cpumask_t cpus_allowed;//该项表示一个位图，用来限制进程可以在哪些CPU上运行
+	cpumask_t cpus_allowed;//该项表示一个位图，用来限制进程可以在哪些CPU上运行:cpu的亲和性
 
 #ifdef CONFIG_PREEMPT_RCU
 	int rcu_read_lock_nesting;
@@ -1138,7 +1140,10 @@ struct task_struct {
 	int __user *set_child_tid;		/* CLONE_CHILD_SETTID */
 	int __user *clear_child_tid;		/* CLONE_CHILD_CLEARTID */
 
-	unsigned int rt_priority;//表示实时进程的优先级，该值与前面的优先级值是不一样的，最低为0，最高99，数字越大，优先级越高
+	//表示实时进程的优先级，该值与前面的优先级值是不一样的，最低为0，最高99，数字越大，优先级越高
+	//实际实时优先级 = 99 - rt_priority
+	unsigned int rt_priority;
+
 	cputime_t utime, stime, utimescaled, stimescaled;
 	cputime_t gtime;
 	cputime_t prev_utime, prev_stime;
@@ -1333,12 +1338,13 @@ struct task_struct {
  * priority to a value higher than any user task. Note:
  * MAX_RT_PRIO must not be smaller than MAX_USER_RT_PRIO.
  */
-
+//优先级数组越小优先级越大，内核中优先级数值在0-139之间.
+//用户使用nice可控制的优先级范围是-20--19，映射到内核优先级的100-139
 #define MAX_USER_RT_PRIO	100
-#define MAX_RT_PRIO		MAX_USER_RT_PRIO
+#define MAX_RT_PRIO		MAX_USER_RT_PRIO //实时进程最大的优先级数值，100
 
-#define MAX_PRIO		(MAX_RT_PRIO + 40)
-#define DEFAULT_PRIO		(MAX_RT_PRIO + 20)
+#define MAX_PRIO		(MAX_RT_PRIO + 40)//普通进程最大的优先级数值，140
+#define DEFAULT_PRIO		(MAX_RT_PRIO + 20)//普通进程默认的优先级数值,120，从此看出用户控制的最小数值也比实时进程的数值大
 
 static inline int rt_prio(int prio)
 {

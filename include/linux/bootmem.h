@@ -27,14 +27,14 @@ extern unsigned long saved_max_pfn;
  * node_bootmem_map is a map pointer - the bits represent all physical 
  * memory pages (including holes) on the node.
  */
-typedef struct bootmem_data {
-	unsigned long node_boot_start;
-	unsigned long node_low_pfn;
-	void *node_bootmem_map;
-	unsigned long last_offset;
-	unsigned long last_pos;
+typedef struct bootmem_data {//bootmem内存分配器所需的数据结构
+	unsigned long node_boot_start;//第一个页的编号，大部分体系结构为0
+	unsigned long node_low_pfn;//直接管理的物理地址的最后一页，即ZONE_NORMAL结束页
+	void *node_bootmem_map;//指向储存分配的位图的内存区指针，在IA-32中，该内存区紧接着内存镜像之后，对应地址保存在_end中，
+	unsigned long last_offset;//如果没有分配整个页，则此成员指页内偏移量
+	unsigned long last_pos;//上一次分配页的编号
 	unsigned long last_success;	/* Previous allocation point.  To speed
-					 * up searching */
+					 * up searching:指定位图中上一次成功分配内存的位置 */
 	struct list_head list;
 } bootmem_data_t;
 
@@ -74,6 +74,9 @@ extern void *__alloc_bootmem_core(struct bootmem_data *bdata,
  * memory already was reserved.
  */
 extern int reserve_bootmem(unsigned long addr, unsigned long size, int flags);
+
+//alloc_bootmem按照指定大小在ZONE_NORMAL上分配内存，数据是对齐的
+//low结尾的宏是在DMA上分配内存
 #define alloc_bootmem(x) \
 	__alloc_bootmem(x, SMP_CACHE_BYTES, __pa(MAX_DMA_ADDRESS))
 #define alloc_bootmem_low(x) \
@@ -84,6 +87,7 @@ extern int reserve_bootmem(unsigned long addr, unsigned long size, int flags);
 	__alloc_bootmem_low(x, PAGE_SIZE, 0)
 #endif /* !CONFIG_HAVE_ARCH_BOOTMEM_NODE */
 
+//free开头的函数或宏是释放内存的，free_all开头的是停用bootmem分配器的！
 extern unsigned long free_all_bootmem(void);
 extern unsigned long free_all_bootmem_node(pg_data_t *pgdat);
 extern void *__alloc_bootmem_node(pg_data_t *pgdat,
@@ -104,6 +108,7 @@ extern void free_bootmem_node(pg_data_t *pgdat,
 extern void *alloc_bootmem_section(unsigned long size,
 				   unsigned long section_nr);
 
+//加_node后缀的适用于NUMA系统，另外需加一个参数，指定内存节点
 #ifndef CONFIG_HAVE_ARCH_BOOTMEM_NODE
 #define alloc_bootmem_node(pgdat, x) \
 	__alloc_bootmem_node(pgdat, x, SMP_CACHE_BYTES, __pa(MAX_DMA_ADDRESS))

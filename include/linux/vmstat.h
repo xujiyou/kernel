@@ -142,6 +142,7 @@ static inline unsigned long global_page_state(enum zone_stat_item item)
 	return x;
 }
 
+//用来读取内存域中的vm_stat信息,通过把item设置为不同的标志来查询不同的信息
 static inline unsigned long zone_page_state(struct zone *zone,
 					enum zone_stat_item item)
 {

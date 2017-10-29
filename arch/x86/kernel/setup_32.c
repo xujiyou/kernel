@@ -481,7 +481,7 @@ static unsigned long __init setup_memory(void)
 	return max_low_pfn;
 }
 
-static void __init zone_sizes_init(void)
+static void __init zone_sizes_init(void)//初始化内存页
 {
 	unsigned long max_zone_pfns[MAX_NR_ZONES];
 	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
@@ -490,7 +490,7 @@ static void __init zone_sizes_init(void)
 	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
 #ifdef CONFIG_HIGHMEM
 	max_zone_pfns[ZONE_HIGHMEM] = highend_pfn;
-	add_active_range(0, 0, highend_pfn);
+	add_active_range(0, 0, highend_pfn);//注册内存区
 #else
 	add_active_range(0, 0, max_low_pfn);
 #endif

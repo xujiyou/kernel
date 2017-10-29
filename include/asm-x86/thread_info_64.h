@@ -30,7 +30,7 @@ struct thread_info {
 	__u32			flags;		/* low level flags */ //底层标志
 	__u32			status;		/* thread synchronous flags */ //线程同步标志
 	__u32			cpu;		/* current CPU */	//当前cpu的数目
-	int 			preempt_count;	/* 0 => preemptable, //表示内核抢占的计数器
+	int 			preempt_count;	/* 0 => preemptable, //表示内核抢占的计数器,若为0，则可以被抢占
 						   <0 => BUG */
 	mm_segment_t		addr_limit;	//指定了进程使用的虚拟地址的上限
 	struct restart_block    restart_block;	//用于实现信号机制

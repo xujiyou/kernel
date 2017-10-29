@@ -93,7 +93,7 @@ static inline struct rq *rq_of(struct cfs_rq *cfs_rq)
 /* An entity is a task if it doesn't "own" a runqueue */
 #define entity_is_task(se)	(!se->my_q)
 
-/* Walk up scheduling entities hierarchy */
+/* Walk up scheduling entities hierarchy *///如果开启了控制组，则遍历时会遍历实体层次结构
 #define for_each_sched_entity(se) \
 		for (; se; se = se->parent)
 
@@ -216,6 +216,7 @@ static inline u64 min_vruntime(u64 min_vruntime, u64 vruntime)
 	return min_vruntime;
 }
 
+//获取调度实体(进程)虚拟时钟与公平调度类的最小虚拟时钟的差
 static inline s64 entity_key(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
 	return se->vruntime - cfs_rq->min_vruntime;
@@ -226,10 +227,10 @@ static inline s64 entity_key(struct cfs_rq *cfs_rq, struct sched_entity *se)
  */
 static void __enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
-	struct rb_node **link = &cfs_rq->tasks_timeline.rb_node;
+	struct rb_node **link = &cfs_rq->tasks_timeline.rb_node;//红黑树
 	struct rb_node *parent = NULL;
 	struct sched_entity *entry;
-	s64 key = entity_key(cfs_rq, se);
+	s64 key = entity_key(cfs_rq, se);//获取差键
 	int leftmost = 1;
 
 	/*
@@ -261,7 +262,7 @@ static void __enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 		 * value tracking the leftmost vruntime in the tree.
 		 */
 		cfs_rq->min_vruntime =
-			max_vruntime(cfs_rq->min_vruntime, se->vruntime);
+			max_vruntime(cfs_rq->min_vruntime, se->vruntime);//更新min_vruntime
 	}
 
 	rb_link_node(&se->run_node, parent, link);
@@ -409,28 +410,31 @@ static u64 sched_vslice_add(struct cfs_rq *cfs_rq, struct sched_entity *se)
  * Update the current task's runtime statistics. Skip current tasks that
  * are not in our scheduling class.
  */
+
 static inline void
 __update_curr(struct cfs_rq *cfs_rq, struct sched_entity *curr,
 	      unsigned long delta_exec)
 {
 	unsigned long delta_exec_weighted;
 
-	schedstat_set(curr->exec_max, max((u64)delta_exec, curr->exec_max));
+	schedstat_set(curr->exec_max, max((u64)delta_exec, curr->exec_max));//设置最大执行时间
 
-	curr->sum_exec_runtime += delta_exec;
+	curr->sum_exec_runtime += delta_exec;//累加物理时间
 	schedstat_add(cfs_rq, exec_clock, delta_exec);
 	delta_exec_weighted = delta_exec;
-	if (unlikely(curr->load.weight != NICE_0_LOAD)) {
+	//优先级越高，获得的虚拟时钟越多
+	if (unlikely(curr->load.weight != NICE_0_LOAD)) {//如果nice为0，则虚拟时间和物理时间相同
 		delta_exec_weighted = calc_delta_fair(delta_exec_weighted,
-							&curr->load);
+							&curr->load);//delta_exec_weighted = delta_exec * (NICE_LOAD / curr->load->weight)
+										//优先级数值越小，优先级越大，权重越大，累加的虚拟时间越少
 	}
-	curr->vruntime += delta_exec_weighted;
+	curr->vruntime += delta_exec_weighted;//累加虚拟时间
 }
 
-static void update_curr(struct cfs_rq *cfs_rq)
+static void update_curr(struct cfs_rq *cfs_rq)//计算虚拟时钟
 {
-	struct sched_entity *curr = cfs_rq->curr;
-	u64 now = rq_of(cfs_rq)->clock;
+	struct sched_entity *curr = cfs_rq->curr;//从完全公平就绪队列中取出当前进程
+	u64 now = rq_of(cfs_rq)->clock;//取出当前实际时钟值，rq_of用于确定cfs_rq的rq
 	unsigned long delta_exec;
 
 	if (unlikely(!curr))
@@ -441,10 +445,10 @@ static void update_curr(struct cfs_rq *cfs_rq)
 	 * since the last time we changed load (this cannot
 	 * overflow on 32 bits):
 	 */
-	delta_exec = (unsigned long)(now - curr->exec_start);
+	delta_exec = (unsigned long)(now - curr->exec_start);//计算进程运行的时间
 
 	__update_curr(cfs_rq, curr, delta_exec);
-	curr->exec_start = now;
+	curr->exec_start = now;//设置开始执行时间为现在
 
 	if (entity_is_task(curr)) {
 		struct task_struct *curtask = task_of(curr);
@@ -513,10 +517,10 @@ update_stats_curr_start(struct cfs_rq *cfs_rq, struct sched_entity *se)
 static void
 account_entity_enqueue(struct cfs_rq *cfs_rq, struct sched_entity *se)
 {
-	update_load_add(&cfs_rq->load, se->load.weight);
-	cfs_rq->nr_running++;
-	se->on_rq = 1;
-	list_add(&se->group_node, &cfs_rq->tasks);
+	update_load_add(&cfs_rq->load, se->load.weight);//就绪队列的权重是各个调度实体权重的累加
+	cfs_rq->nr_running++;//就绪队列中的进程数加一
+	se->on_rq = 1;//说明实体已存在就绪队列中了
+	list_add(&se->group_node, &cfs_rq->tasks);//将进程加入到就绪队列中
 }
 
 static void
@@ -587,14 +591,14 @@ static void check_spread(struct cfs_rq *cfs_rq, struct sched_entity *se)
 #endif
 }
 
-static void
+static void//调整刚唤醒进程的虚拟运行时间
 place_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial)
 {
 	u64 vruntime;
 
-	if (first_fair(cfs_rq)) {
+	if (first_fair(cfs_rq)) {//first_fair检测红黑树是否有最左边的节点，即是否有进程在树上等待调度
 		vruntime = min_vruntime(cfs_rq->min_vruntime,
-				__pick_next_entity(cfs_rq)->vruntime);
+				__pick_next_entity(cfs_rq)->vruntime);//获取就绪队列和当前运行进程中的最小虚拟时钟
 	} else
 		vruntime = cfs_rq->min_vruntime;
 
@@ -604,10 +608,10 @@ place_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial)
 	 * little, place the new task so that it fits in the slot that
 	 * stays open at the end.
 	 */
-	if (initial && sched_feat(START_DEBIT))
+	if (initial && sched_feat(START_DEBIT))//若是新产生的进程
 		vruntime += sched_vslice_add(cfs_rq, se);
 
-	if (!initial) {
+	if (!initial) {//若进程为从睡眠中唤醒的进程，这时需要保证其他进程都运行了最小的时间
 		/* sleeps upto a single latency don't count. */
 		if (sched_feat(NEW_FAIR_SLEEPERS))
 			vruntime -= sysctl_sched_latency;
@@ -625,11 +629,11 @@ enqueue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int wakeup)
 	/*
 	 * Update run-time statistics of the 'current'.
 	 */
-	update_curr(cfs_rq);
-	account_entity_enqueue(cfs_rq, se);
+	update_curr(cfs_rq);//计算虚拟时钟
+	account_entity_enqueue(cfs_rq, se);//将调度实体加入就绪队列中
 
-	if (wakeup) {
-		place_entity(cfs_rq, se, 0);
+	if (wakeup) {//若进程是新唤醒的进程
+		place_entity(cfs_rq, se, 0);//如果是从睡眠唤醒的进程，则这里是0
 		enqueue_sleeper(cfs_rq, se);
 	}
 
@@ -692,8 +696,8 @@ check_preempt_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr)
 
 	ideal_runtime = sched_slice(cfs_rq, curr);
 	delta_exec = curr->sum_exec_runtime - curr->prev_sum_exec_runtime;
-	if (delta_exec > ideal_runtime)
-		resched_task(rq_of(cfs_rq)->curr);
+	if (delta_exec > ideal_runtime)//若实际运行时间比延迟周期中确定的份额长，则发出重调度请求
+		resched_task(rq_of(cfs_rq)->curr);//将当前进程设置TIF_NEED_RESCHED，核心调度器将会下一个合适的时机发起调度
 }
 
 static void
@@ -707,11 +711,11 @@ set_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 		 * runqueue.
 		 */
 		update_stats_wait_end(cfs_rq, se);
-		__dequeue_entity(cfs_rq, se);
+		__dequeue_entity(cfs_rq, se);//当前执行进程不保存在就绪队列上
 	}
 
 	update_stats_curr_start(cfs_rq, se);
-	cfs_rq->curr = se;
+	cfs_rq->curr = se;//虽然进程不保存在红黑树中，但是进程和就绪队列之间的关联没有丢失
 #ifdef CONFIG_SCHEDSTATS
 	/*
 	 * Track our maximum slice length, if the CPU's load is at
@@ -723,7 +727,8 @@ set_next_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 			se->sum_exec_runtime - se->prev_sum_exec_runtime);
 	}
 #endif
-	se->prev_sum_exec_runtime = se->sum_exec_runtime;
+	se->prev_sum_exec_runtime = se->sum_exec_runtime;//记录此时的cpu执行时间，方便以后计算
+													//cpu实际花费的时间(prev_sum_exec_runtime - sum_exec_runtime)
 }
 
 static int
@@ -745,10 +750,10 @@ static struct sched_entity *pick_next_entity(struct cfs_rq *cfs_rq)
 {
 	struct sched_entity *se = NULL;
 
-	if (first_fair(cfs_rq)) {
+	if (first_fair(cfs_rq)) {//如果存在最左边的节点
 		se = __pick_next_entity(cfs_rq);
 		se = pick_next(cfs_rq, se);
-		set_next_entity(cfs_rq, se);
+		set_next_entity(cfs_rq, se);//将实体标记为运行进程
 	}
 
 	return se;
@@ -772,13 +777,13 @@ static void put_prev_entity(struct cfs_rq *cfs_rq, struct sched_entity *prev)
 	cfs_rq->curr = NULL;
 }
 
-static void
+static void//周期性调度器实际调用的函数
 entity_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr, int queued)
 {
 	/*
 	 * Update run-time statistics of the 'current'.
 	 */
-	update_curr(cfs_rq);
+	update_curr(cfs_rq);//更新虚拟时钟
 
 #ifdef CONFIG_SCHED_HRTICK
 	/*
@@ -797,8 +802,8 @@ entity_tick(struct cfs_rq *cfs_rq, struct sched_entity *curr, int queued)
 		return;
 #endif
 
-	if (cfs_rq->nr_running > 1 || !sched_feat(WAKEUP_PREEMPT))
-		check_preempt_tick(cfs_rq, curr);
+	if (cfs_rq->nr_running > 1 || !sched_feat(WAKEUP_PREEMPT))//当进程数大于1时并且没有唤醒抢占
+		check_preempt_tick(cfs_rq, curr);//确保没有哪个进程能够比延迟周期中确定的份额运行得更长
 }
 
 /**************************************************
@@ -847,15 +852,16 @@ hrtick_start_fair(struct rq *rq, struct task_struct *p)
  * increased. Here we update the fair scheduling stats and
  * then put the task into the rbtree:
  */
+//若wakeup为1，则新加入队列的进程是最近才唤醒的，若为0，那么此进程此前就是可运行的
 static void enqueue_task_fair(struct rq *rq, struct task_struct *p, int wakeup)
 {
 	struct cfs_rq *cfs_rq;
-	struct sched_entity *se = &p->se;
-
+	struct sched_entity *se = &p->se;//获取调度实体
+	//for_each_sched_entity是宏，即：for (; se; se = NULL)
 	for_each_sched_entity(se) {
-		if (se->on_rq)
+		if (se->on_rq)	//若实体已存在于队列中，则跳出
 			break;
-		cfs_rq = cfs_rq_of(se);
+		cfs_rq = cfs_rq_of(se);//获取公平就绪队列
 		enqueue_entity(cfs_rq, se, wakeup);
 		wakeup = 1;
 	}
@@ -1108,14 +1114,14 @@ out:
 
 static unsigned long wakeup_gran(struct sched_entity *se)
 {
-	unsigned long gran = sysctl_sched_wakeup_granularity;
+	unsigned long gran = sysctl_sched_wakeup_granularity;//进程需要运行的最小物理时间
 
 	/*
 	 * More easily preempt - nice tasks, while not making
 	 * it harder for + nice tasks.
 	 */
 	if (unlikely(se->load.weight > NICE_0_LOAD))
-		gran = calc_delta_fair(gran, &se->load);
+		gran = calc_delta_fair(gran, &se->load);//转化为虚拟时间
 
 	return gran;
 }
@@ -1137,13 +1143,13 @@ static unsigned long wakeup_gran(struct sched_entity *se)
 static int
 wakeup_preempt_entity(struct sched_entity *curr, struct sched_entity *se)
 {
-	s64 gran, vdiff = curr->vruntime - se->vruntime;
+	s64 gran, vdiff = curr->vruntime - se->vruntime;//求两者的虚拟时间差距
 
-	if (vdiff < 0)
+	if (vdiff < 0)//如果抢占者的运行的时间长，则让他滚
 		return -1;
 
-	gran = wakeup_gran(curr);
-	if (vdiff > gran)
+	gran = wakeup_gran(curr);//求被抢占者应该最少运行的虚拟时间
+	if (vdiff > gran)//被抢占者远大于抢占者，则进行调度
 		return 1;
 
 	return 0;
@@ -1167,10 +1173,10 @@ static void check_preempt_wakeup(struct rq *rq, struct task_struct *p)
 {
 	struct task_struct *curr = rq->curr;
 	struct cfs_rq *cfs_rq = task_cfs_rq(curr);
-	struct sched_entity *se = &curr->se, *pse = &p->se;
+	struct sched_entity *se = &curr->se, *pse = &p->se;//se为被抢占者，pse为抢占者
 	int se_depth, pse_depth;
 
-	if (unlikely(rt_prio(p->prio))) {
+	if (unlikely(rt_prio(p->prio))) {//是实时进程，则进行重调度，因为实时进程总是会抢占CFS进程
 		update_rq_clock(rq);
 		update_curr(cfs_rq);
 		resched_task(curr);
@@ -1186,11 +1192,12 @@ static void check_preempt_wakeup(struct rq *rq, struct task_struct *p)
 	/*
 	 * Batch tasks do not preempt (their preemption is driven by
 	 * the tick):
-	 */
+	 *///batch:批量
+	//SCHED_BATCH标志的进程绝不会抢占另一个进程
 	if (unlikely(p->policy == SCHED_BATCH))
 		return;
 
-	if (!sched_feat(WAKEUP_PREEMPT))
+	if (!sched_feat(WAKEUP_PREEMPT))//没有WAKEUP_PREEMPT(唤醒抢占)标志就退出
 		return;
 
 	/*
@@ -1219,7 +1226,7 @@ static void check_preempt_wakeup(struct rq *rq, struct task_struct *p)
 		pse = parent_entity(pse);
 	}
 
-	if (wakeup_preempt_entity(se, pse) == 1)
+	if (wakeup_preempt_entity(se, pse) == 1)//
 		resched_task(curr);
 }
 
@@ -1229,11 +1236,11 @@ static struct task_struct *pick_next_task_fair(struct rq *rq)
 	struct cfs_rq *cfs_rq = &rq->cfs;
 	struct sched_entity *se;
 
-	if (unlikely(!cfs_rq->nr_running))
+	if (unlikely(!cfs_rq->nr_running))//没有正在运行的进程，则退出
 		return NULL;
 
 	do {
-		se = pick_next_entity(cfs_rq);
+		se = pick_next_entity(cfs_rq);//挑选下一个调度实体
 		cfs_rq = group_cfs_rq(se);
 	} while (cfs_rq);
 
@@ -1407,6 +1414,7 @@ move_one_task_fair(struct rq *this_rq, int this_cpu, struct rq *busiest,
 /*
  * scheduler tick hitting a task of our scheduling class:
  */
+//由周期性调度器调用
 static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
 {
 	struct cfs_rq *cfs_rq;
@@ -1427,6 +1435,7 @@ static void task_tick_fair(struct rq *rq, struct task_struct *curr, int queued)
  * monopolize the CPU. Note: the parent runqueue is locked,
  * the child is not running yet.
  */
+//在新进程需要抢占CPU时调用
 static void task_new_fair(struct rq *rq, struct task_struct *p)
 {
 	struct cfs_rq *cfs_rq = task_cfs_rq(p);
@@ -1436,11 +1445,12 @@ static void task_new_fair(struct rq *rq, struct task_struct *p)
 	sched_info_queued(p);
 
 	update_curr(cfs_rq);
-	place_entity(cfs_rq, se, 1);
+	place_entity(cfs_rq, se, 1);//这里是新生成的进程，所以这里为1,这里设置新进程的虚拟时间
 
 	/* 'curr' will be NULL if the child belongs to a different group */
 	if (sysctl_sched_child_runs_first && this_cpu == task_cpu(p) &&
-			curr && curr->vruntime < se->vruntime) {
+			curr && curr->vruntime < se->vruntime) {//如果新进程所需的虚拟时间大于当前(父)进程的虚拟时间则调度
+													//则交换二者的虚拟时间，保证子进程先运行
 		/*
 		 * Upon rescheduling, sched_class::put_prev_task() will place
 		 * 'current' within the tree based on its new key value.
@@ -1449,7 +1459,7 @@ static void task_new_fair(struct rq *rq, struct task_struct *p)
 	}
 
 	enqueue_task_fair(rq, p, 0);
-	resched_task(rq->curr);
+	resched_task(rq->curr);//重新调度
 }
 
 /*
@@ -1514,6 +1524,7 @@ static void moved_group_fair(struct task_struct *p)
 /*
  * All the scheduling class methods:
  */
+//完全公平调度类实例
 static const struct sched_class fair_sched_class = {
 	.next			= &idle_sched_class,
 	.enqueue_task		= enqueue_task_fair,
@@ -1523,7 +1534,7 @@ static const struct sched_class fair_sched_class = {
 	.select_task_rq		= select_task_rq_fair,
 #endif /* CONFIG_SMP */
 
-	.check_preempt_curr	= check_preempt_wakeup,
+	.check_preempt_curr	= check_preempt_wakeup,//用于新产生的新进程抢占内核
 
 	.pick_next_task		= pick_next_task_fair,
 	.put_prev_task		= put_prev_task_fair,
@@ -1535,7 +1546,7 @@ static const struct sched_class fair_sched_class = {
 
 	.set_curr_task          = set_curr_task_fair,
 	.task_tick		= task_tick_fair,
-	.task_new		= task_new_fair,
+	.task_new		= task_new_fair,//用于提供fork等系统调用和调度器之间的关联
 
 	.prio_changed		= prio_changed_fair,
 	.switched_to		= switched_to_fair,

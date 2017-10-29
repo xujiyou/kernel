@@ -33,48 +33,55 @@ typedef unsigned long mm_counter_t;
  * a page, though if it is a pagecache page, rmap structures can tell us
  * who is mapping it.
  */
-struct page {
+struct page {//页帧，此结构要尽量小，因为页的数目巨大,使用联合就是减小此结构的大小
+	//falgs的各个比特位储存了体系结构无关的标志，用于描述页的属性
 	unsigned long flags;		/* Atomic flags, some possibly
-					 * updated asynchronously */
-	atomic_t _count;		/* Usage count, see below. */
+					 * updated asynchronously:原子标志，有些情况下会异步更新 */
+	//_count是一个引用计数，表示内核中引用该页的次数，在其为0时，内核就知道page当前不再使用，因此可删除
+	atomic_t _count;		/* Usage count, see below:使用计数，见下文. */
 	union {
+		//_mapcount表示在页表中有多少项指向该页
 		atomic_t _mapcount;	/* Count of ptes mapped in mms,
 					 * to show when page is mapped
 					 * & limit reverse map searches.
+		内存管理子系统中映射的页表项计数，用于表示页是否已经映射，还用于限制逆向映射搜索
 					 */
-		struct {		/* SLUB */
+		struct {		/* SLUB:用于slub分配器 */
 			u16 inuse;
 			u16 objects;
 		};
 	};
 	union {
 	    struct {
-		unsigned long private;		/* Mapping-private opaque data:
-					 	 * usually used for buffer_heads
-						 * if PagePrivate set; used for
-						 * swp_entry_t if PageSwapCache;
+		//private指向一块私有数据，虚拟内存管理会忽略该数据，
+		unsigned long private;		/* Mapping-private opaque data:由映射私有，不透明的数据
+					 	 * usually used for buffer_heads：若设置了PagePrivate，通常用于buffer_heads
+						 * if PagePrivate set; used for:若设置了PageSwapCache, 则用于swp_entry_t
+						 * swp_entry_t if PageSwapCache;若设置PG_buddy,则用于伙伴系统的阶
 						 * indicates order in the buddy
 						 * system if PG_buddy is set.
 						 */
-		struct address_space *mapping;	/* If low bit clear, points to
+		//mapping指定了页帧所在的地址空间
+		struct address_space *mapping;	/* If low bit clear, points to：若低位为0，则指向inode address_space或NULL
 						 * inode address_space, or NULL.
-						 * If page mapped as anonymous
+						 * If page mapped as anonymous若页映射为匿名内存，则最低位置位，并且该指针指向anon_vma对象
 						 * memory, low bit is set, and
 						 * it points to anon_vma object:
-						 * see PAGE_MAPPING_ANON below.
+						 * see PAGE_MAPPING_ANON below.参见下文的PAGE_MAPPING_ANON
 						 */
 	    };
 #if NR_CPUS >= CONFIG_SPLIT_PTLOCK_CPUS
 	    spinlock_t ptl;
 #endif
-	    struct kmem_cache *slab;	/* SLUB: Pointer to slab */
-	    struct page *first_page;	/* Compound tail pages */
+	    struct kmem_cache *slab;	/* SLUB: Pointer to slab:指向slab的指针 */
+	    struct page *first_page;	/* Compound tail pages:用于复合页的尾页，指向首页 */
 	};
 	union {
-		pgoff_t index;		/* Our offset within mapping. */
+		pgoff_t index;		/* Our offset within mapping：在影射区的偏移量. */
 		void *freelist;		/* SLUB: freelist req. slab lock */
 	};
-	struct list_head lru;		/* Pageout list, eg. active_list
+	//lru是一个表头，用于在各种链表中维护该页，以便将页按不同的类别分组，最重要的类别是活动与不活动
+	struct list_head lru;		/* Pageout list, eg. active_list：换出页列表，例如由zone->lru_lock保护的active_list
 					 * protected by zone->lru_lock !
 					 */
 	/*
@@ -88,8 +95,9 @@ struct page {
 	 * WANT_PAGE_VIRTUAL in asm/page.h
 	 */
 #if defined(WANT_PAGE_VIRTUAL)
+	//virtual用于高端内存区域中的页，即无法直接映射到内核内存中的页，用于储存该页的虚拟地址
 	void *virtual;			/* Kernel virtual address (NULL if
-					   not kmapped, ie. highmem) */
+					   not kmapped, ie. highmem):内核虚拟地址，（若没有影射为NULL，即高端内存） */
 #endif /* WANT_PAGE_VIRTUAL */
 #ifdef CONFIG_CGROUP_MEM_RES_CTLR
 	unsigned long page_cgroup;

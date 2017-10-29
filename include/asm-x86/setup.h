@@ -52,7 +52,7 @@ extern struct boot_params boot_params;
 
 struct e820entry;
 
-char * __init machine_specific_memory_setup(void);
+char * __init machine_specific_memory_setup(void);//初始化时，创建一个系统占据的内存区和空闲区的列表
 char *memory_setup(void);
 
 int __init copy_e820_map(struct e820entry *biosmap, int nr_map);

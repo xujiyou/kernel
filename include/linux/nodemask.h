@@ -360,16 +360,17 @@ static inline void __nodes_fold(nodemask_t *dstp, const nodemask_t *origp,
 /*
  * Bitmasks that are kept for all the nodes.
  */
+//内存节点状态，N_POSSIBLE,N_ONLINE,N_CPU用与CPU和内存的热插拔
 enum node_states {
-	N_POSSIBLE,		/* The node could become online at some point */
-	N_ONLINE,		/* The node is online */
-	N_NORMAL_MEMORY,	/* The node has regular memory */
+	N_POSSIBLE,		/* The node could become online at some point:节点在某个时候可能变为联机 */
+	N_ONLINE,		/* The node is online:节点是联机的 */
+	N_NORMAL_MEMORY,	/* The node has regular memory:节点有普通的内存域 */
 #ifdef CONFIG_HIGHMEM
-	N_HIGH_MEMORY,		/* The node has regular or high memory */
+	N_HIGH_MEMORY,		/* The node has regular or high memory:节点有普通或高端的内存域 */
 #else
 	N_HIGH_MEMORY = N_NORMAL_MEMORY,
 #endif
-	N_CPU,		/* The node has one or more cpus */
+	N_CPU,		/* The node has one or more cpus:节点有一个或多个CPU */
 	NR_NODE_STATES
 };
 
@@ -386,12 +387,12 @@ static inline int node_state(int node, enum node_states state)
 	return node_isset(node, node_states[state]);
 }
 
-static inline void node_set_state(int node, enum node_states state)
+static inline void node_set_state(int node, enum node_states state)//设置及节点的状态
 {
 	__node_set(node, &node_states[state]);
 }
 
-static inline void node_clear_state(int node, enum node_states state)
+static inline void node_clear_state(int node, enum node_states state)//清除节点的状态
 {
 	__node_clear(node, &node_states[state]);
 }
@@ -408,7 +409,7 @@ static inline int num_node_state(enum node_states state)
 #define next_online_node(nid)	next_node((nid), node_states[N_ONLINE])
 
 extern int nr_node_ids;
-#else
+#else//若内核编译时只支持单个节点(使用平坦地址模型),则没有节点位图，上述操作变为空操作
 
 static inline int node_state(int node, enum node_states state)
 {
@@ -428,6 +429,7 @@ static inline int num_node_state(enum node_states state)
 	return 1;
 }
 
+//用于迭代处于特定状态下的所有节点
 #define for_each_node_state(node, __state) \
 	for ( (node) = 0; (node) == 0; (node) = 1)
 
@@ -458,6 +460,7 @@ static inline int num_node_state(enum node_states state)
 #define node_set_offline(node)	   node_clear_state((node), N_ONLINE)
 
 #define for_each_node(node)	   for_each_node_state(node, N_POSSIBLE)
+//遍历所有活动节点
 #define for_each_online_node(node) for_each_node_state(node, N_ONLINE)
 
 #endif /* __LINUX_NODEMASK_H */
