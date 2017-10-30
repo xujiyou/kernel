@@ -1096,13 +1096,13 @@ failed:
 	return NULL;
 }
 
-#define ALLOC_NO_WATERMARKS	0x01 /* don't check watermarks at all */
+#define ALLOC_NO_WATERMARKS	0x01 /* don't check watermarks at all:不检查任何水印 */
 #define ALLOC_WMARK_MIN		0x02 /* use pages_min watermark */
 #define ALLOC_WMARK_LOW		0x04 /* use pages_low watermark */
 #define ALLOC_WMARK_HIGH	0x08 /* use pages_high watermark */
-#define ALLOC_HARDER		0x10 /* try to alloc harder */
+#define ALLOC_HARDER		0x10 /* try to alloc harder：放宽限制分配，努力分配 */
 #define ALLOC_HIGH		0x20 /* __GFP_HIGH set */
-#define ALLOC_CPUSET		0x40 /* check for correct cpuset */
+#define ALLOC_CPUSET		0x40 /* check for correct cpuset：检查内存节点是否对应着CPU集合 */
 
 #ifdef CONFIG_FAIL_PAGE_ALLOC
 
@@ -1203,27 +1203,28 @@ static inline int should_fail_alloc_page(gfp_t gfp_mask, unsigned int order)
  * Return 1 if free pages are above 'mark'. This takes into account the order
  * of the allocation.
  */
+ //该函数根据设置的标志判断是否能从给定的内存域分配
 int zone_watermark_ok(struct zone *z, int order, unsigned long mark,
 		      int classzone_idx, int alloc_flags)
 {
 	/* free_pages my go negative - that's OK */
 	long min = mark;
-	long free_pages = zone_page_state(z, NR_FREE_PAGES) - (1 << order) + 1;
+	long free_pages = zone_page_state(z, NR_FREE_PAGES) - (1 << order) + 1;//得到空闲页的数目
 	int o;
 
-	if (alloc_flags & ALLOC_HIGH)
-		min -= min / 2;
-	if (alloc_flags & ALLOC_HARDER)
+	if (alloc_flags & ALLOC_HIGH)//放宽内存分配的限制，下同
+        min -= min / 2;
+    if (alloc_flags & ALLOC_HARDER)
 		min -= min / 4;
 
-	if (free_pages <= min + z->lowmem_reserve[classzone_idx])
+	if (free_pages <= min + z->lowmem_reserve[classzone_idx])//lowmen_reserve中的是紧急分配值之和
 		return 0;
-	for (o = 0; o < order; o++) {
+	for (o = 0; o < order; o++) {//遍历所有阶
 		/* At the next order, this order's pages become unavailable */
-		free_pages -= z->free_area[o].nr_free << o;
+		free_pages -= z->free_area[o].nr_free << o;//空闲页数减去当前阶中的页
 
 		/* Require fewer higher order pages to be free */
-		min >>= 1;
+		min >>= 1;//最小值折半
 
 		if (free_pages <= min)
 			return 0;
@@ -1353,11 +1354,11 @@ static void zlc_mark_zone_full(struct zonelist *zonelist, struct zoneref *z)
 
 /*
  * get_page_from_freelist goes through the zonelist trying to allocate
- * a page.
+ * a page.这个函数通过标志集和分配阶来判断是否能进行分配，若可以，则开始分配
  */
 static struct page *
 get_page_from_freelist(gfp_t gfp_mask, nodemask_t *nodemask, unsigned int order,
-		struct zonelist *zonelist, int high_zoneidx, int alloc_flags)
+		struct zonelist *zonelist, int high_zoneidx, int alloc_flags)//zonelist是指向备用列表的指针
 {
 	struct zoneref *z;
 	struct page *page = NULL;
@@ -1376,7 +1377,7 @@ get_page_from_freelist(gfp_t gfp_mask, nodemask_t *nodemask, unsigned int order,
 
 zonelist_scan:
 	/*
-	 * Scan zonelist, looking for a zone with enough free.
+	 * Scan zonelist, looking for a zone with enough free:扫描zonelist，寻找具有足够空闲空间的内存域.
 	 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
 	 */
 	for_each_zone_zonelist_nodemask(zone, z, zonelist,
@@ -1385,7 +1386,7 @@ zonelist_scan:
 			!zlc_zone_worth_trying(zonelist, z, allowednodes))
 				continue;
 		if ((alloc_flags & ALLOC_CPUSET) &&
-			!cpuset_zone_allowed_softwall(zone, gfp_mask))
+			!cpuset_zone_allowed_softwall(zone, gfp_mask))//这个函数检查给定的内存域是否属于该进程允许运行的CPU
 				goto try_next_zone;
 
 		if (!(alloc_flags & ALLOC_NO_WATERMARKS)) {
@@ -1396,7 +1397,7 @@ zonelist_scan:
 				mark = zone->pages_low;
 			else
 				mark = zone->pages_high;
-			if (!zone_watermark_ok(zone, order, mark,
+			if (!zone_watermark_ok(zone, order, mark,//这个函数检查遍历到的内存域是否有足够的空闲页，和连续的内存块，若其中之一没有，则失败
 				    classzone_idx, alloc_flags)) {
 				if (!zone_reclaim_mode ||
 				    !zone_reclaim(zone, gfp_mask, order))
@@ -1404,8 +1405,8 @@ zonelist_scan:
 			}
 		}
 
-		page = buffered_rmqueue(preferred_zone, zone, order, gfp_mask);
-		if (page)
+		page = buffered_rmqueue(preferred_zone, zone, order, gfp_mask);//试图分配所需的数目
+		if (page)//若分配完成，则跳出循环，没有，则遍历下一个内存域
 			break;
 this_zone_full:
 		if (NUMA_BUILD)

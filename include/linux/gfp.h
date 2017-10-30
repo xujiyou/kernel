@@ -16,6 +16,7 @@ struct vm_area_struct;
  * without the underscores and use the consistently. The definitions here may
  * be used in bit comparisons.
  */
+ //内存域修饰符
 #define __GFP_DMA	((__force gfp_t)0x01u)
 #define __GFP_HIGHMEM	((__force gfp_t)0x02u)
 #define __GFP_DMA32	((__force gfp_t)0x04u)
@@ -34,7 +35,8 @@ struct vm_area_struct;
  * __GFP_MOVABLE: Flag that this page will be movable by the page migration
  * mechanism or reclaimed
  */
-#define __GFP_WAIT	((__force gfp_t)0x10u)	/* Can wait and reschedule? */
+ /*分配内存时的mask掩码标志。GFP:get free page:获得空闲内存页*/
+#define __GFP_WAIT	((__force gfp_t)0x10u)	/* Can wait and reschedule?：分配时可终端 */
 #define __GFP_HIGH	((__force gfp_t)0x20u)	/* Should access emergency pools? */
 #define __GFP_IO	((__force gfp_t)0x40u)	/* Can start physical IO? */
 #define __GFP_FS	((__force gfp_t)0x80u)	/* Can call down to low-level FS? */
@@ -54,16 +56,18 @@ struct vm_area_struct;
 #define __GFP_BITS_SHIFT 21	/* Room for 21 __GFP_FOO bits */
 #define __GFP_BITS_MASK ((__force gfp_t)((1 << __GFP_BITS_SHIFT) - 1))
 
+//双下划线意味着数据通常用于内部，下面的定义没有双下划线，说明还可以给内核其他子系统使用
+//下面的定义将上面的标志分组
 /* This equals 0, but use constants in case they ever change */
 #define GFP_NOWAIT	(GFP_ATOMIC & ~__GFP_HIGH)
 /* GFP_ATOMIC means both !wait (__GFP_WAIT not set) and use emergency pool */
-#define GFP_ATOMIC	(__GFP_HIGH)
-#define GFP_NOIO	(__GFP_WAIT)
-#define GFP_NOFS	(__GFP_WAIT | __GFP_IO)
-#define GFP_KERNEL	(__GFP_WAIT | __GFP_IO | __GFP_FS)
+#define GFP_ATOMIC	(__GFP_HIGH)/*用于原子操作*/
+#define GFP_NOIO	(__GFP_WAIT)/*分配过程中禁止IO操作*/
+#define GFP_NOFS	(__GFP_WAIT | __GFP_IO)/*分配过程中禁止访问VFS层*/
+#define GFP_KERNEL	(__GFP_WAIT | __GFP_IO | __GFP_FS)/*内核分配的默认设置*/
 #define GFP_TEMPORARY	(__GFP_WAIT | __GFP_IO | __GFP_FS | \
 			 __GFP_RECLAIMABLE)
-#define GFP_USER	(__GFP_WAIT | __GFP_IO | __GFP_FS | __GFP_HARDWALL)
+#define GFP_USER	(__GFP_WAIT | __GFP_IO | __GFP_FS | __GFP_HARDWALL)/*用户分配内存的默认设置*/
 #define GFP_HIGHUSER	(__GFP_WAIT | __GFP_IO | __GFP_FS | __GFP_HARDWALL | \
 			 __GFP_HIGHMEM)
 #define GFP_HIGHUSER_MOVABLE	(__GFP_WAIT | __GFP_IO | __GFP_FS | \
@@ -179,17 +183,18 @@ extern struct page *
 __alloc_pages_nodemask(gfp_t, unsigned int,
 				struct zonelist *, nodemask_t *nodemask);
 
+//所有的内存分配函数都调用了此函数
 static inline struct page *alloc_pages_node(int nid, gfp_t gfp_mask,
 						unsigned int order)
 {
-	if (unlikely(order >= MAX_ORDER))
+	if (unlikely(order >= MAX_ORDER))//避免阶过大
 		return NULL;
 
 	/* Unknown node is current node */
 	if (nid < 0)
 		nid = numa_node_id();
 
-	return __alloc_pages(gfp_mask, order, node_zonelist(nid, gfp_mask));
+	return __alloc_pages(gfp_mask, order, node_zonelist(nid, gfp_mask));//__alloc_pages是伙伴系统的心脏
 }
 
 #ifdef CONFIG_NUMA
@@ -206,6 +211,7 @@ alloc_pages(gfp_t gfp_mask, unsigned int order)
 extern struct page *alloc_page_vma(gfp_t gfp_mask,
 			struct vm_area_struct *vma, unsigned long addr);
 #else
+//分配内存，所有分配内存的函数和宏都可以追溯到alloc_pages_node
 #define alloc_pages(gfp_mask, order) \
 		alloc_pages_node(numa_node_id(), gfp_mask, order)
 #define alloc_page_vma(gfp_mask, vma, addr) alloc_pages(gfp_mask, 0)
