@@ -109,7 +109,7 @@ static inline int allocflags_to_migratetype(gfp_t gfp_flags)
 {
 	WARN_ON((gfp_flags & GFP_MOVABLE_MASK) == GFP_MOVABLE_MASK);
 
-	if (unlikely(page_group_by_mobility_disabled))
+	if (unlikely(page_group_by_mobility_disabled))//若停用了页面迁移特性，则所有的页都是不可移动的
 		return MIGRATE_UNMOVABLE;
 
 	/* Group based on mobility */

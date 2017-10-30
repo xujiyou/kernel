@@ -181,7 +181,7 @@ enum zone_type {
 	 */
 	ZONE_HIGHMEM,//标记了超出内核段的物理内存
 #endif
-	ZONE_MOVABLE,//伪内存域，防止物理内存碎片中会使用
+	ZONE_MOVABLE,//虚拟内存域（可移动内存域），若使用需要管理员开启和配置，防止物理内存碎片中会使用
 	__MAX_NR_ZONES//结束标记，在内核想要迭代系统中的所有内存域时会用到
 };
 
@@ -251,7 +251,7 @@ struct zone {//内存域，这个结构实例少，但这个结构被使用的�
 	 * Flags for a pageblock_nr_pages block. See pageblock-flags.h.
 	 * In SPARSEMEM, this map is stored in struct mem_section
 	 */
-	unsigned long		*pageblock_flags;
+	unsigned long		*pageblock_flags;//跟踪内存属性，包含pageblock_nr_pages个页的内存区属性
 #endif /* CONFIG_SPARSEMEM */
 
 
@@ -614,7 +614,7 @@ static inline int populated_zone(struct zone *zone)
 	return (!!zone->present_pages);
 }
 
-extern int movable_zone;
+extern int movable_zone;//全局变量，储存虚拟内存域ZONE_MOVABLE使用的那块内存域
 
 static inline int zone_movable_is_highmem(void)
 {

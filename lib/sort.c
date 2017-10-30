@@ -3,7 +3,7 @@
  *
  * Jan 23 2005  Matt Mackall <mpm@selenic.com>
  */
-
+//通用的堆排序实现
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/sort.h>
