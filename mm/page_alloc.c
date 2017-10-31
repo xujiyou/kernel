@@ -1029,6 +1029,9 @@ void split_page(struct page *page, unsigned int order)
  * we cheat by calling it from here, in the order > 0 path.  Saves a branch
  * or two.
  */
+ /*
+ *内核找出要分配的页之后，需要先检查这些页是否是连续的，然后从空闲列表中删除这些页
+ */
 static struct page *buffered_rmqueue(struct zone *preferred_zone,
 			struct zone *zone, int order, gfp_t gfp_flags)
 {
@@ -1040,7 +1043,7 @@ static struct page *buffered_rmqueue(struct zone *preferred_zone,
 
 again:
 	cpu  = get_cpu();
-	if (likely(order == 0)) {
+	if (likely(order == 0)) {//若阶为0,分配一页，内核会进行优化
 		struct per_cpu_pages *pcp;
 
 		pcp = &zone_pcp(zone, cpu)->pcp;
@@ -1405,7 +1408,7 @@ zonelist_scan:
 			}
 		}
 
-		page = buffered_rmqueue(preferred_zone, zone, order, gfp_mask);//试图分配所需的数目
+		page = buffered_rmqueue(preferred_zone, zone, order, gfp_mask);//分配完成后，从空闲列表中移除页
 		if (page)//若分配完成，则跳出循环，没有，则遍历下一个内存域
 			break;
 this_zone_full:
@@ -1429,7 +1432,8 @@ try_next_zone:
 }
 
 /*
- * This is the 'heart' of the zoned buddy allocator.
+ * This is the 'heart' of the zoned buddy allocator:他是伙伴分配器的心脏.
+ * 这个函数在内存太少或逐渐用完时会很复杂，若有足够内存，则必要的工作很快完成
  */
 static struct page *
 __alloc_pages_internal(gfp_t gfp_mask, unsigned int order,
@@ -1464,9 +1468,9 @@ restart:
 	}
 
 	page = get_page_from_freelist(gfp_mask|__GFP_HARDWALL, nodemask, order,
-			zonelist, high_zoneidx, ALLOC_WMARK_LOW|ALLOC_CPUSET);
-	if (page)
-		goto got_pg;
+			zonelist, high_zoneidx, ALLOC_WMARK_LOW|ALLOC_CPUSET);//返回所需数目的页
+	if (page)//分配成功，直接返回页
+		goto got_pg;//return page
 
 	/*
 	 * GFP_THISNODE (meaning __GFP_THISNODE, __GFP_NORETRY and
@@ -1479,8 +1483,8 @@ restart:
 	if (NUMA_BUILD && (gfp_mask & GFP_THISNODE) == GFP_THISNODE)
 		goto nopage;
 
-	for_each_zone_zonelist(zone, z, zonelist, high_zoneidx)
-		wakeup_kswapd(zone, order);
+	for_each_zone_zonelist(zone, z, zonelist, high_zoneidx)//遍历备用列表中的内存域，
+		wakeup_kswapd(zone, order);//唤醒负责换出页的守护进程kswapd
 
 	/*
 	 * OK, we're below the kswapd watermark and have kicked background
@@ -1492,9 +1496,10 @@ restart:
 	 * policy or is asking for __GFP_HIGH memory.  GFP_ATOMIC requests will
 	 * set both ALLOC_HARDER (!wait) and ALLOC_HIGH (__GFP_HIGH).
 	 */
+     //对分配标志进行调整
 	alloc_flags = ALLOC_WMARK_MIN;
 	if ((unlikely(rt_task(p)) && !in_interrupt()) || !wait)
-		alloc_flags |= ALLOC_HARDER;
+		alloc_flags |= ALLOC_HARDER;//降低分配要求，下同
 	if (gfp_mask & __GFP_HIGH)
 		alloc_flags |= ALLOC_HIGH;
 	if (wait)
@@ -1509,43 +1514,44 @@ restart:
 	 * See also cpuset_zone_allowed() comment in kernel/cpuset.c.
 	 */
 	page = get_page_from_freelist(gfp_mask, nodemask, order, zonelist,
-						high_zoneidx, alloc_flags);
-	if (page)
+						high_zoneidx, alloc_flags);//再次获取所需的页
+	if (page)//若成功，返回分配的页
 		goto got_pg;
 
 	/* This allocation should allow future memory freeing. */
 
-rebalance:
+rebalance://低速路径的入口
 	if (((p->flags & PF_MEMALLOC) || unlikely(test_thread_flag(TIF_MEMDIE)))
-			&& !in_interrupt()) {
-		if (!(gfp_mask & __GFP_NOMEMALLOC)) {
+			&& !in_interrupt()) {//若进程设置了这俩标志，则内核不能处于中断上下文中
+		if (!(gfp_mask & __GFP_NOMEMALLOC)) {//该标志禁止使用紧急分配链表，此时无药可治
 nofail_alloc:
 			/* go through the zonelist yet again, ignoring mins */
 			page = get_page_from_freelist(gfp_mask, nodemask, order,
-				zonelist, high_zoneidx, ALLOC_NO_WATERMARKS);
+				zonelist, high_zoneidx, ALLOC_NO_WATERMARKS);//完全忽略水印，再次请求
 			if (page)
 				goto got_pg;
-			if (gfp_mask & __GFP_NOFAIL) {
+			if (gfp_mask & __GFP_NOFAIL) {//若失败了，但设置了此标志，则进入循环直至成功
 				congestion_wait(WRITE, HZ/50);
 				goto nofail_alloc;
-			}
+			}//如果在没有水印的情况下也失败就无药可治了
 		}
 		goto nopage;
 	}
 
 	/* Atomic allocations - we can't balance anything */
-	if (!wait)
+	if (!wait)//若没有设置该标志，则放弃尝试
 		goto nopage;
 
-	cond_resched();
+	cond_resched();//重调度，防止花费过多的时间搜索内存，以至于使其他进程处于饥饿状态
 
 	/* We now go into synchronous reclaim */
 	cpuset_memory_pressure_bump();
-	p->flags |= PF_MEMALLOC;
+	p->flags |= PF_MEMALLOC;//设置了此标志，内存分配就很积极，该函数确保了此标志不会提前设置，请看上面的代码
 	reclaim_state.reclaimed_slab = 0;
 	p->reclaim_state = &reclaim_state;
 
-	did_some_progress = try_to_free_pages(zonelist, order, gfp_mask);
+	did_some_progress = try_to_free_pages(zonelist, order, gfp_mask);//该函数查找当前不急需的页，以便换出
+                                //该操作很耗时，可能导致进程进入睡眠，该函数返回增加的空闲页数目
 
 	p->reclaim_state = NULL;
 	p->flags &= ~PF_MEMALLOC;
@@ -1557,7 +1563,7 @@ nofail_alloc:
 
 	if (likely(did_some_progress)) {
 		page = get_page_from_freelist(gfp_mask, nodemask, order,
-					zonelist, high_zoneidx, alloc_flags);
+					zonelist, high_zoneidx, alloc_flags);//释放了一些页之后，再请求
 		if (page)
 			goto got_pg;
 	} else if ((gfp_mask & __GFP_FS) && !(gfp_mask & __GFP_NORETRY)) {
@@ -1586,7 +1592,7 @@ nofail_alloc:
 			goto nopage;
 		}
 
-		out_of_memory(zonelist, gfp_mask, order);
+		out_of_memory(zonelist, gfp_mask, order);//这个杀死占有过多内存的进程
 		clear_zonelist_oom(zonelist, gfp_mask);
 		goto restart;
 	}
@@ -1618,12 +1624,12 @@ nofail_alloc:
 		if (gfp_mask & __GFP_NOFAIL)
 			do_retry = 1;
 	}
-	if (do_retry) {
+	if (do_retry) {//满足以上情况下，进入循环，
 		congestion_wait(WRITE, HZ/50);
 		goto rebalance;
 	}
 
-nopage:
+nopage://请求失败
 	if (!(gfp_mask & __GFP_NOWARN) && printk_ratelimit()) {
 		printk(KERN_WARNING "%s: page allocation failure."
 			" order:%d, mode:0x%x\n",
@@ -1631,7 +1637,7 @@ nopage:
 		dump_stack();
 		show_mem();
 	}
-got_pg:
+got_pg://请求成功
 	return page;
 }
 
