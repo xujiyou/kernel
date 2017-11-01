@@ -24,7 +24,7 @@
 
 
 DEFINE_RWLOCK(vmlist_lock);
-struct vm_struct *vmlist;
+struct vm_struct *vmlist;//vm_area实例组成的一个链表，管理着vmllooc区域中已经建立的各个子区域，此为表头
 
 static void *__vmalloc_node(unsigned long size, gfp_t gfp_mask, pgprot_t prot,
 			    int node, void *caller);
@@ -206,7 +206,7 @@ unsigned long vmalloc_to_pfn(const void *vmalloc_addr)
 }
 EXPORT_SYMBOL(vmalloc_to_pfn);
 
-static struct vm_struct *
+static struct vm_struct * //该函数根据子区域长度，试图在虚拟的vmalloc空间中找到一个适当的位置
 __get_vm_area_node(unsigned long size, unsigned long flags, unsigned long start,
 		unsigned long end, int node, gfp_t gfp_mask, void *caller)
 {
@@ -238,10 +238,10 @@ __get_vm_area_node(unsigned long size, unsigned long flags, unsigned long start,
 	/*
 	 * We always allocate a guard page.
 	 */
-	size += PAGE_SIZE;
+	size += PAGE_SIZE;//多分配一个间隔页(处于虚拟内存中，不浪费物理页的宝贵空间)
 
 	write_lock(&vmlist_lock);
-	for (p = &vmlist; (tmp = *p) != NULL ;p = &tmp->next) {
+	for (p = &vmlist; (tmp = *p) != NULL ;p = &tmp->next) {//遍历vmlist链表，直至找到一个合适的项
 		if ((unsigned long)tmp->addr < addr) {
 			if((unsigned long)tmp->addr + tmp->size >= addr)
 				addr = ALIGN(tmp->size + 
@@ -250,7 +250,7 @@ __get_vm_area_node(unsigned long size, unsigned long flags, unsigned long start,
 		}
 		if ((size + addr) < addr)
 			goto out;
-		if (size + addr <= (unsigned long)tmp->addr)
+		if (size + addr <= (unsigned long)tmp->addr)//若size+addr小于无符号的tmp->addr，则找到了一个合适的位置
 			goto found;
 		addr = ALIGN(tmp->size + (unsigned long)tmp->addr, align);
 		if (addr > end - size)
@@ -262,11 +262,12 @@ __get_vm_area_node(unsigned long size, unsigned long flags, unsigned long start,
 		goto out;
 
 found:
+    //初始化新的链表节点，并添加到vmlist链表
 	area->next = *p;
 	*p = area;
 
 	area->flags = flags;
-	area->addr = (void *)addr;
+	area->addr = (void *)addr;//将找到的地址赋值给
 	area->size = size;
 	area->pages = NULL;
 	area->nr_pages = 0;
@@ -481,7 +482,7 @@ void *vmap(struct page **pages, unsigned int count,
 	return area->addr;
 }
 EXPORT_SYMBOL(vmap);
-
+//在物理内存分配各个页，最后将这些页连续地映射到vmalloc区域中
 static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 				 pgprot_t prot, int node, void *caller)
 {
@@ -495,7 +496,7 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 	/* Please note that the recursion is strictly bounded. */
 	if (array_size > PAGE_SIZE) {
 		pages = __vmalloc_node(array_size, gfp_mask | __GFP_ZERO,
-				PAGE_KERNEL, node, caller);
+				PAGE_KERNEL, node, caller);//设置PAGE_KERNEL | __GFP_HIGHMEM，指示内存管理子系统尽量从ZONE_HIGHMEM分配
 		area->flags |= VM_VPAGES;
 	} else {
 		pages = kmalloc_node(array_size,
@@ -510,13 +511,15 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 		return NULL;
 	}
 
+    /*以上代码是无趣的安全检查，以下是物理内存区域的分配*/
+
 	for (i = 0; i < area->nr_pages; i++) {
 		struct page *page;
 
 		if (node < 0)
-			page = alloc_page(gfp_mask);
+			page = alloc_page(gfp_mask);//从当前节点分配
 		else
-			page = alloc_pages_node(node, gfp_mask, 0);
+			page = alloc_pages_node(node, gfp_mask, 0);//若显示指定了内存节点，则使用此函数从制定的节点分配
 
 		if (unlikely(!page)) {
 			/* Successfully allocated i pages, free them in __vunmap() */
@@ -526,7 +529,7 @@ static void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
 		area->pages[i] = page;
 	}
 
-	if (map_vm_area(area, prot, &pages))
+	if (map_vm_area(area, prot, &pages))//此函数将分散的物理内存页连续地映射到虚拟的vmalloc区域
 		goto fail;
 	return area->addr;
 
@@ -563,12 +566,12 @@ static void *__vmalloc_node(unsigned long size, gfp_t gfp_mask, pgprot_t prot,
 		return NULL;
 
 	area = __get_vm_area_node(size, VM_ALLOC, VMALLOC_START, VMALLOC_END,
-						node, gfp_mask, caller);
+						node, gfp_mask, caller);//在vmalloc虚拟地址空间找到一个适当的区域
 
 	if (!area)
 		return NULL;
 
-	return __vmalloc_area_node(area, gfp_mask, prot, node, caller);
+	return __vmalloc_area_node(area, gfp_mask, prot, node, caller);//从物理内存中分配各个页
 }
 
 void *__vmalloc(unsigned long size, gfp_t gfp_mask, pgprot_t prot)
