@@ -347,7 +347,7 @@ static struct vm_struct *__remove_vm_area(const void *addr)
 	return NULL;
 
 found:
-	unmap_vm_area(tmp);
+	unmap_vm_area(tmp);//从页表中删除不再需要的项，他还会更新CPU高速缓存
 	*p = tmp->next;
 
 	/*
@@ -374,6 +374,7 @@ struct vm_struct *remove_vm_area(const void *addr)
 	return v;
 }
 
+//此函数是vmalloc释放内存的最终函数，deallocate_pages指定了是否将与该区域相关的物理内存页返还给伙伴系统
 static void __vunmap(const void *addr, int deallocate_pages)
 {
 	struct vm_struct *area;
@@ -387,7 +388,7 @@ static void __vunmap(const void *addr, int deallocate_pages)
 		return;
 	}
 
-	area = remove_vm_area(addr);
+	area = remove_vm_area(addr);//扫描vmlist链表，以找到要删除的页
 	if (unlikely(!area)) {
 		printk(KERN_ERR "Trying to vfree() nonexistent vm area (%p)\n",
 				addr);
@@ -398,23 +399,23 @@ static void __vunmap(const void *addr, int deallocate_pages)
 	debug_check_no_locks_freed(addr, area->size);
 	debug_check_no_obj_freed(addr, area->size);
 
-	if (deallocate_pages) {
+	if (deallocate_pages) {//此参数若设置为1
 		int i;
 
 		for (i = 0; i < area->nr_pages; i++) {
 			struct page *page = area->pages[i];
 
 			BUG_ON(!page);
-			__free_page(page);
+			__free_page(page);//将页释放到伙伴系统
 		}
 
-		if (area->flags & VM_VPAGES)
+		if (area->flags & VM_VPAGES)//释放页的数据结构
 			vfree(area->pages);
 		else
 			kfree(area->pages);
 	}
 
-	kfree(area);
+	kfree(area);//释放用于管理该内存区的内核数据结构
 	return;
 }
 
