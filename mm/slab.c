@@ -3504,20 +3504,20 @@ static void free_block(struct kmem_cache *cachep, void **objpp, int nr_objects,
 	struct kmem_list3 *l3;
 
 	for (i = 0; i < nr_objects; i++) {
-		void *objp = objpp[i];
+		void *objp = objpp[i];//遍历objpp中的对象，objpp指向per-CPU中的对象
 		struct slab *slabp;
 
-		slabp = virt_to_slab(objp);
+		slabp = virt_to_slab(objp);//找到对象所在的页
 		l3 = cachep->nodelists[node];
 		list_del(&slabp->list);
 		check_spinlock_acquired_node(cachep, node);
 		check_slabp(cachep, slabp);
-		slab_put_obj(cachep, slabp, objp, node);
+		slab_put_obj(cachep, slabp, objp, node);//该slab从缓存中临时移除
 		STATS_DEC_ACTIVE(cachep);
 		l3->free_objects++;
 		check_slabp(cachep, slabp);
 
-		/* fixup slab chains */
+		/* fixup slab chains:修正slab所处的链表 */
 		if (slabp->inuse == 0) {
 			if (l3->free_objects > l3->free_limit) {
 				l3->free_objects -= cachep->num;
@@ -3547,7 +3547,7 @@ static void cache_flusharray(struct kmem_cache *cachep, struct array_cache *ac)
 	struct kmem_list3 *l3;
 	int node = numa_node_id();
 
-	batchcount = ac->batchcount;
+	batchcount = ac->batchcount;//从缓存移回slab对象的数目
 #if DEBUG
 	BUG_ON(!batchcount || batchcount > ac->avail);
 #endif
@@ -3613,9 +3613,9 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp)
 	if (numa_platform && cache_free_alien(cachep, objp))
 		return;
 
-	if (likely(ac->avail < ac->limit)) {
+	if (likely(ac->avail < ac->limit)) {//若per-CPU缓存中的对象数目低于允许的限制，
 		STATS_INC_FREEHIT(cachep);
-		ac->entry[ac->avail++] = objp;
+		ac->entry[ac->avail++] = objp;//在实体中储存一个指向缓存中对象的指针
 		return;
 	} else {
 		STATS_INC_FREEMISS(cachep);
@@ -3773,6 +3773,7 @@ EXPORT_SYMBOL(__kmalloc);
  * Free an object which was previously allocated from this
  * cache.
  */
+ /*若一个分配的对象已经不再需要，那么必须使用这个函数返回给slab分配器*/
 void kmem_cache_free(struct kmem_cache *cachep, void *objp)
 {
 	unsigned long flags;

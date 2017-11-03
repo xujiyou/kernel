@@ -16,8 +16,8 @@
 #include <linux/compiler.h>
 
 /* Size description struct for general caches. */
-struct cache_sizes {
-	size_t		 	cs_size;
+struct cache_sizes {//kmalloc的基础结构，这里面是一些分别用于不同内存长度的slab缓存
+	size_t		 	cs_size;//指定了该项负责的内存区长度
 	struct kmem_cache	*cs_cachep;
 #ifdef CONFIG_ZONE_DMA
 	struct kmem_cache	*cs_dmacachep;
