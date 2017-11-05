@@ -70,7 +70,7 @@ extern unsigned int kobjsize(const void *objp);
 #endif
 
 /*
- * vm_flags..
+ * vm_flags..虚拟内存页的标志，分别是读，写，执行，共享
  */
 #define VM_READ		0x00000001	/* currently active flags */
 #define VM_WRITE	0x00000002
@@ -84,7 +84,7 @@ extern unsigned int kobjsize(const void *objp);
 #define VM_MAYSHARE	0x00000080
 
 #define VM_GROWSDOWN	0x00000100	/* general info on the segment */
-#define VM_GROWSUP	0x00000200
+#define VM_GROWSUP	0x00000200  /*标志是否可以向上，向下扩展*/
 #define VM_PFNMAP	0x00000400	/* Page-ranges managed without "struct page", just pure PFN */
 #define VM_DENYWRITE	0x00000800	/* ETXTBSY on write attempts.. */
 
@@ -96,7 +96,7 @@ extern unsigned int kobjsize(const void *objp);
 #define VM_SEQ_READ	0x00008000	/* App will access data sequentially */
 #define VM_RAND_READ	0x00010000	/* App will not benefit from clustered reads */
 
-#define VM_DONTCOPY	0x00020000      /* Do not copy this vma on fork */
+#define VM_DONTCOPY	0x00020000      /* Do not copy this vma on fork:在fork调用时不复制 */
 #define VM_DONTEXPAND	0x00040000	/* Cannot expand with mremap() */
 #define VM_RESERVED	0x00080000	/* Count as reserved_vm like IO */
 #define VM_ACCOUNT	0x00100000	/* Is a VM accounted object */
@@ -161,9 +161,10 @@ struct vm_fault {
  * unmapping it (needed to keep files on disk up-to-date etc), pointer
  * to the functions called when a no-page or a wp-page exception occurs. 
  */
-struct vm_operations_struct {
+struct vm_operations_struct {//用于操作进程的虚拟内存区域
 	void (*open)(struct vm_area_struct * area);
 	void (*close)(struct vm_area_struct * area);
+    //若虚拟内存页不在物理内存页中，自动触发缺页异常程序会调用该函数，将对应的数据读取到一个映射到用于地址空间的物理内存页中
 	int (*fault)(struct vm_area_struct *vma, struct vm_fault *vmf);
 	unsigned long (*nopfn)(struct vm_area_struct *area,
 			unsigned long address);
