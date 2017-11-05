@@ -442,18 +442,18 @@ static inline size_t iov_iter_count(struct iov_iter *i)
 
 
 struct address_space_operations {
-	int (*writepage)(struct page *page, struct writeback_control *wbc);
-	int (*readpage)(struct file *, struct page *);
+	int (*writepage)(struct page *page, struct writeback_control *wbc);//从物理内存写回到块设备
+	int (*readpage)(struct file *, struct page *);//从块设备中读取一页到物理内存
 	void (*sync_page)(struct page *);
 
 	/* Write back some dirty pages from this mapping. */
 	int (*writepages)(struct address_space *, struct writeback_control *);
 
 	/* Set a page dirty.  Return true if this dirtied it */
-	int (*set_page_dirty)(struct page *page);
+	int (*set_page_dirty)(struct page *page);//表示一页的内容已经改变
 
 	int (*readpages)(struct file *filp, struct address_space *mapping,
-			struct list_head *pages, unsigned nr_pages);
+			struct list_head *pages, unsigned nr_pages);//读取多页
 
 	/*
 	 * ext3 requires that a successful prepare_write() call be followed

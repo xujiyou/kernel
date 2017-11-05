@@ -750,7 +750,7 @@ can_vma_merge_after(struct vm_area_struct *vma, unsigned long vm_flags,
  *
  * Odd one out? Case 8, because it extends NNNN but needs flags of XXXX:
  * mprotect_fixup updates vm_flags & vm_page_prot on successful return.
- */
+ *//*区域合并*/
 struct vm_area_struct *vma_merge(struct mm_struct *mm,
 			struct vm_area_struct *prev, unsigned long addr,
 			unsigned long end, unsigned long vm_flags,
@@ -781,7 +781,7 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 	if (prev && prev->vm_end == addr &&
   			mpol_equal(vma_policy(prev), policy) &&
 			can_vma_merge_after(prev, vm_flags,
-						anon_vma, file, pgoff)) {
+						anon_vma, file, pgoff)) {//检查前一个区域是否可以合并
 		/*
 		 * OK, it can.  Can we now merge in the successor as well?
 		 */
@@ -790,7 +790,7 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 				can_vma_merge_before(next, vm_flags,
 					anon_vma, file, pgoff+pglen) &&
 				is_mergeable_anon_vma(prev->anon_vma,
-						      next->anon_vma)) {
+						      next->anon_vma)) {//检查后一个区域是否可以合并
 							/* cases 1, 6 */
 			vma_adjust(prev, prev->vm_start,
 				next->vm_end, prev->vm_pgoff, NULL);
@@ -1422,7 +1422,7 @@ void arch_unmap_area_topdown(struct mm_struct *mm, unsigned long addr)
 		mm->free_area_cache = mm->mmap_base;
 }
 
-unsigned long
+unsigned long//此函数用于确认虚拟地址空间有足够的空间，可用于给定长度的区域
 get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
 		unsigned long pgoff, unsigned long flags)
 {
@@ -1447,21 +1447,21 @@ get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
 EXPORT_SYMBOL(get_unmapped_area);
 
 /* Look up the first VMA which satisfies  addr < vm_end,  NULL if none. */
-struct vm_area_struct * find_vma(struct mm_struct * mm, unsigned long addr)
+struct vm_area_struct * find_vma(struct mm_struct * mm, unsigned long addr)//查找给定地址的区域。mm指定了要扫描的进程
 {
 	struct vm_area_struct *vma = NULL;
 
 	if (mm) {
 		/* Check the cache first. */
 		/* (Cache hit rate is typically around 35%.) */
-		vma = mm->mmap_cache;
+		vma = mm->mmap_cache;//首先检查上次处理的区域是否包含所需的地址
 		if (!(vma && vma->vm_end > addr && vma->vm_start <= addr)) {
 			struct rb_node * rb_node;
 
-			rb_node = mm->mm_rb.rb_node;
+			rb_node = mm->mm_rb.rb_node;//不是上次的内存区域，则在红黑树中查找
 			vma = NULL;
 
-			while (rb_node) {
+			while (rb_node) {//从红黑树中查找
 				struct vm_area_struct * vma_tmp;
 
 				vma_tmp = rb_entry(rb_node,
@@ -1476,7 +1476,7 @@ struct vm_area_struct * find_vma(struct mm_struct * mm, unsigned long addr)
 					rb_node = rb_node->rb_right;
 			}
 			if (vma)
-				mm->mmap_cache = vma;
+				mm->mmap_cache = vma;//更新刚刚处理的区域
 		}
 	}
 	return vma;
@@ -2078,7 +2078,7 @@ void exit_mmap(struct mm_struct *mm)
 /* Insert vm structure into process list sorted by address
  * and into the inode's i_mmap tree.  If vm_file is non-NULL
  * then i_mmap_lock is taken here.
- */
+ *//*插入区域*/
 int insert_vm_struct(struct mm_struct * mm, struct vm_area_struct * vma)
 {
 	struct vm_area_struct * __vma, * prev;
@@ -2100,6 +2100,7 @@ int insert_vm_struct(struct mm_struct * mm, struct vm_area_struct * vma)
 		BUG_ON(vma->anon_vma);
 		vma->vm_pgoff = vma->vm_start >> PAGE_SHIFT;
 	}
+    /*通过新区域的地址空间和起始地址获取*/
 	__vma = find_vma_prepare(mm,vma->vm_start,&prev,&rb_link,&rb_parent);
 	if (__vma && __vma->vm_start < vma->vm_end)
 		return -ENOMEM;
