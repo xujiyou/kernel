@@ -35,8 +35,8 @@
  *
  * Leave an at least ~128 MB hole.
  */
-#define MIN_GAP (128*1024*1024)
-#define MAX_GAP (TASK_SIZE/6*5)
+#define MIN_GAP (128*1024*1024)/*栈的最小长度*/
+#define MAX_GAP (TASK_SIZE/6*5)/**/
 
 /*
  * True on X86_32 or when emulating IA32 on X86_64
@@ -109,7 +109,7 @@ static unsigned long mmap_legacy_base(void)
  * This function, called very early during the creation of a new
  * process VM image, sets up which VM layout function to use:
  */
-void arch_pick_mmap_layout(struct mm_struct *mm)
+void arch_pick_mmap_layout(struct mm_struct *mm)//在经典布局与新布局之间进行选择
 {
 	if (mmap_is_legacy()) {
 		mm->mmap_base = mmap_legacy_base();

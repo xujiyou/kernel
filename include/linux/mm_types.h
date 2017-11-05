@@ -111,16 +111,16 @@ struct page {//页帧，此结构要尽量小，因为页的数目巨大,使用�
  * library, the executable area etc).
  */
 struct vm_area_struct {
-	struct mm_struct * vm_mm;	/* The address space we belong to. */
-	unsigned long vm_start;		/* Our start address within vm_mm. */
-	unsigned long vm_end;		/* The first byte after our end address
+	struct mm_struct * vm_mm;//反向指针，指向该区域所属的mm_struct实例	/* The address space we belong to. */
+	unsigned long vm_start;//起始地址		/* Our start address within vm_mm. */
+	unsigned long vm_end;//结束地址		/* The first byte after our end address
 					   within vm_mm. */
 
 	/* linked list of VM areas per task, sorted by address */
-	struct vm_area_struct *vm_next;
+	struct vm_area_struct *vm_next;//所有实例的链表是通过这个成员实现的
 
-	pgprot_t vm_page_prot;		/* Access permissions of this VMA. */
-	unsigned long vm_flags;		/* Flags, listed below. */
+	pgprot_t vm_page_prot;//该区域的访问权限，与内存页的访问权限相同		/* Access permissions of this VMA. */
+	unsigned long vm_flags;//描述该区域的标志		/* Flags, listed below. */
 
 	struct rb_node vm_rb;
 
@@ -138,7 +138,7 @@ struct vm_area_struct {
 		} vm_set;
 
 		struct raw_prio_tree_node prio_tree_node;
-	} shared;
+	} shared;//链表或优先树
 
 	/*
 	 * A file's MAP_PRIVATE vma can be in both i_mmap tree and anon_vma
@@ -146,17 +146,18 @@ struct vm_area_struct {
 	 * can only be in the i_mmap tree.  An anonymous MAP_PRIVATE, stack
 	 * or brk vma (with NULL file) can only be in an anon_vma list.
 	 */
+    /*用于管理匿名映射的共享页，指向相同页的映射都保存在一个双链表上*/
 	struct list_head anon_vma_node;	/* Serialized by anon_vma->lock */
 	struct anon_vma *anon_vma;	/* Serialized by page_table_lock */
 
 	/* Function pointers to deal with this struct. */
-	struct vm_operations_struct * vm_ops;
+	struct vm_operations_struct * vm_ops;//指向一堆方法的集合，这些方法用于在区域上执行各种标准操作
 
 	/* Information about our backing store: */
 	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
 					   units, *not* PAGE_CACHE_SIZE */
-	struct file * vm_file;		/* File we map to (can be NULL). */
-	void * vm_private_data;		/* was vm_pte (shared mem) */
+	struct file * vm_file;//指向file实例，描述了一个被映射的文件		/* File we map to (can be NULL). */
+	void * vm_private_data;//私有数据，很少用		/* was vm_pte (shared mem) */
 	unsigned long vm_truncate_count;/* truncate_count or restart_addr */
 
 #ifndef CONFIG_MMU
@@ -168,15 +169,16 @@ struct vm_area_struct {
 };
 
 struct mm_struct {
-	struct vm_area_struct * mmap;		/* list of VMAs */
-	struct rb_root mm_rb;
+    //每个内存区域都是vm_area_struct的实例
+	struct vm_area_struct * mmap;//以链表的形式排序虚拟内存区域列表		/* list of VMAs */
+	struct rb_root mm_rb;//以红黑树的形式排序虚拟内存区域
 	struct vm_area_struct * mmap_cache;	/* last find_vma result */
 	unsigned long (*get_unmapped_area) (struct file *filp,
 				unsigned long addr, unsigned long len,
-				unsigned long pgoff, unsigned long flags);
+				unsigned long pgoff, unsigned long flags);//这个方法在mmap区域中为新映射找到适当的位置
 	void (*unmap_area) (struct mm_struct *mm, unsigned long addr);
-	unsigned long mmap_base;		/* base of mmap area */
-	unsigned long task_size;		/* size of task vm space */
+	unsigned long mmap_base;//内存映射区域的基地址    /* base of mmap area */
+	unsigned long task_size;//储存了对应进程的地址空间长度		/* size of task vm space */
 	unsigned long cached_hole_size; 	/* if non-zero, the largest hole below free_area_cache */
 	unsigned long free_area_cache;		/* first hole of size cached_hole_size or larger */
 	pgd_t * pgd;
@@ -203,9 +205,10 @@ struct mm_struct {
 
 	unsigned long total_vm, locked_vm, shared_vm, exec_vm;
 	unsigned long stack_vm, reserved_vm, def_flags, nr_ptes;
-	unsigned long start_code, end_code, start_data, end_data;
-	unsigned long start_brk, brk, start_stack;
-	unsigned long arg_start, arg_end, env_start, env_end;
+    /*各个段的起始地址与结束地址*/
+	unsigned long start_code, end_code, start_data, end_data;//可执行代码占用的虚拟地址空间地址，开始和结束标记
+	unsigned long start_brk, brk, start_stack;//堆的其实地址，结束地址brk，brk会变，栈的起始地址
+	unsigned long arg_start, arg_end, env_start, env_end;//参数列表和环境列表都位于栈中最高的区域
 
 	unsigned long saved_auxv[AT_VECTOR_SIZE]; /* for /proc/PID/auxv */
 
