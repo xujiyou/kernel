@@ -23,10 +23,10 @@
  * @wait_list:	pilist head to enqueue waiters in priority order
  * @owner:	the mutex owner
  */
-struct rt_mutex {
-	spinlock_t		wait_lock;
-	struct plist_head	wait_list;
-	struct task_struct	*owner;
+struct rt_mutex {//实时互斥量，
+	spinlock_t		wait_lock;//自旋锁，用于锁住信号量
+	struct plist_head	wait_list;//按优先级排序的等待``进程
+	struct task_struct	*owner;//信号量的所有者
 #ifdef CONFIG_DEBUG_RT_MUTEXES
 	int			save_state;
 	const char 		*name, *file;

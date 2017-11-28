@@ -45,11 +45,11 @@
  * - detects multi-task circular deadlocks and prints out all affected
  *   locks and tasks (and only those tasks)
  */
-struct mutex {
+struct mutex {//互斥量
 	/* 1: unlocked, 0: locked, negative: locked, possible waiters */
-	atomic_t		count;
-	spinlock_t		wait_lock;
-	struct list_head	wait_list;
+	atomic_t		count;//可以原子操作的值，当前互斥量的值，可以为1,0，负数
+	spinlock_t		wait_lock;//自旋锁
+	struct list_head	wait_list;//等待该信号量的进程链表
 #ifdef CONFIG_DEBUG_MUTEXES
 	struct thread_info	*owner;
 	const char 		*name;
