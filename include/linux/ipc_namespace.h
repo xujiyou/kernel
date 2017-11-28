@@ -17,16 +17,16 @@
 
 
 struct ipc_ids {
-	int in_use;
+	int in_use;//当前正在使用的ipc对象数目
 	unsigned short seq;
-	unsigned short seq_max;
-	struct rw_semaphore rw_mutex;
+	unsigned short seq_max;//这两个成员用于产生
+	struct rw_semaphore rw_mutex;//内核互斥量，保护用户空间的ipc对象
 	struct idr ipcs_idr;
 };
 
 struct ipc_namespace {
 	struct kref	kref;
-	struct ipc_ids	ids[3];
+	struct ipc_ids	ids[3];//分别代表信号量，消息队列和共享内存的ipc对象结构
 
 	int		sem_ctls[4];
 	int		used_sems;

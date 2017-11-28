@@ -88,7 +88,7 @@ struct sem {
 };
 
 /* One sem_array data structure for each set of semaphores in the system. */
-struct sem_array {
+struct sem_array {//用户空间信号量状态
 	struct kern_ipc_perm	sem_perm;	/* permissions .. see ipc.h */
 	time_t			sem_otime;	/* last semop time */
 	time_t			sem_ctime;	/* last change time */
@@ -99,7 +99,7 @@ struct sem_array {
 	unsigned long		sem_nsems;	/* no. of semaphores in array */
 };
 
-/* One queue for each sleeping process in the system. */
+/* One queue for each sleeping process in the system:等待system V信号量的睡眠队列. */
 struct sem_queue {
 	struct sem_queue *	next;	 /* next entry in the queue */
 	struct sem_queue **	prev;	 /* previous entry in the queue, *(q->prev) == q */

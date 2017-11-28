@@ -9,7 +9,7 @@ struct file_operations;
 struct inode;
 struct module;
 
-struct cdev {
+struct cdev {//字符设备结构
 	struct kobject kobj;
 	struct module *owner;
 	const struct file_operations *ops;

@@ -16,7 +16,7 @@
 #include <linux/kobject.h>
 #include <linux/kobj_map.h>
 
-struct kobj_map {
+struct kobj_map {//散列表
 	struct probe {
 		struct probe *next;
 		dev_t dev;
@@ -26,7 +26,7 @@ struct kobj_map {
 		int (*lock)(dev_t, void *);
 		void *data;
 	} *probes[255];
-	struct mutex *lock;
+	struct mutex *lock;//互斥量
 };
 
 int kobj_map(struct kobj_map *domain, dev_t dev, unsigned long range,

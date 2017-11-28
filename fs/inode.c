@@ -1420,6 +1420,7 @@ void __init inode_init(void)
 		INIT_HLIST_HEAD(&inode_hashtable[loop]);
 }
 
+//当打开一个设备文件时，各种文件系统就会调用此函数，为块设备或字符设备创建inode
 void init_special_inode(struct inode *inode, umode_t mode, dev_t rdev)
 {
 	inode->i_mode = mode;

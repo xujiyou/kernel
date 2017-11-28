@@ -85,18 +85,18 @@ struct ipc_kludge {
 #define IPCMNI 32768  /* <= MAX_INT limit for ipc arrays (including sysctl changes) */
 
 /* used by in-kernel data structures */
-struct kern_ipc_perm
+struct kern_ipc_perm//保存了有关ipc对象所有者及ipc对象访问权限的信息
 {
 	spinlock_t	lock;
 	int		deleted;
 	int		id;
-	key_t		key;
+	key_t		key;//保存了ipc对象的魔数
 	uid_t		uid;
 	gid_t		gid;
 	uid_t		cuid;
 	gid_t		cgid;
-	mode_t		mode; 
-	unsigned long	seq;
+	mode_t		mode; //访问权限
+	unsigned long	seq;//分配给ipc对象的序号
 	void		*security;
 };
 
